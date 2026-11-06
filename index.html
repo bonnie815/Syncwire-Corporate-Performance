@@ -5277,8 +5277,8 @@ window.HOME = (function () {
      每一行的「说明」都由下级科目实时算出来，不是写死的文案。
      链路严格闭合：营业收入 − 各项 = 平台毛利 − 各项 = 税前净利 − 所得税 = 税后净利，
      对不平时会自己冒出一行「未归集差额」，不藏。 */
-  function bridgeDetail(st) {
-    var ms = curMs(), rev = st.rev;
+  function bridgeDetail(st, periodOverride, rowsOnly) {
+    var ms = periodOverride || curMs(), rev = st.rev;
     var f = function (id) { var v = fv(id, ms); return v === null ? 0 : v; };
     var sm = function (ids) { return ids.reduce(function (a, i) { return a + f(i); }, 0); };
     var L = (F || {}).labels || {};
@@ -5407,10 +5407,10 @@ window.HOME = (function () {
        因为那通常是汇兑赚的，不是经营赚的，容易被当成经营变好。 */
     R.push({ k: 'fin', n: '财务费用', v: -f('77'),
       d: topsN(['78', '79', '81', '80', '82', '83'], 3) || '汇兑损益、利息、手续费' });
-    if (Math.abs(f('85')) >= 1e4 || Math.abs(f('84')) >= 1e4)
+    if (rowsOnly || Math.abs(f('85')) >= 1e4 || Math.abs(f('84')) >= 1e4)
       R.push({ k: 'income', n: '其他收益 / 投资收益', v: f('85') + f('84'),
         d: '政府补助、平台返还等' + (Math.abs(f('84')) >= 1e4 ? '，含投资收益 ' + w1(f('84')) + '万' : '') });
-    if (Math.abs(nonop) >= 1e4)
+    if (rowsOnly || Math.abs(nonop) >= 1e4)
       R.push({ k: 'nonop', n: '营业外收支', v: nonop,
         /* Bonnie 2026-09-06：「列明包含项：代收代缴税额差、政府补贴。各多少」。
            代收代缴差＝平台代收 VAT(92) − 平台代缴 VAT(93)，是这一行的主体；
@@ -5433,7 +5433,7 @@ window.HOME = (function () {
         })() });
     var ebt = f('94');
     var gap = ebt - (gpCalc - (f('35') + f('68')) - (f('51') - f('68')) - othSell - f('77') + f('85') + f('84') + nonop);
-    if (Math.abs(gap) >= 1e4)
+    if (rowsOnly || Math.abs(gap) >= 1e4)
       R.push({ k: 'gapdiff', n: '未归集差额', v: gap, warn: true, d: '上面各项与管报「十、税前净利润」的差额，已单列，不并入任何科目' });
     R.push({ k: 'ebt', t: 2, n: '税前净利', v: ebt, d: '税前利润率 ' + pctS(ebt / rev, 2) });
     /* Bonnie 2026-09-06：「写 减：所得税，金额方面不要用负数」。
@@ -5475,10 +5475,30 @@ window.HOME = (function () {
         ? ('净利率 ' + pctS((ebt - tp) / rev, 2) + '　<em>现金视角，对外以计提口径为准</em>')
         : '等税务页签补上本期数据后自动计算' });
 
+    if (rowsOnly) return R;
+    var previousMonths = cmpMs(), previousRows = null;
+    var previousStructure = previousMonths ? structure(previousMonths) : null;
+    if (previousStructure) previousRows = bridgeDetail(previousStructure, previousMonths, true);
+    var previousByKey = {};
+    (previousRows || []).forEach(function(row){if(row.k) previousByKey[row.k]=row;});
+    var expenseRows = {pay:1,payadm:1,adm:1,othsell:1,fin:1,tax:1,taxpaid:1};
+    var markChanges = false;
+    function changeLabel(row) {
+      var prev = previousByKey[row.k];
+      if(!prev || row.v === null || prev.v === null) return '<b class="na">'+esc(cmpLab())+'增减 —</b>';
+      var sign = expenseRows[row.k] ? -1 : 1;
+      var delta = sign * (row.v-prev.v);
+      var whole = Math.round(Math.abs(delta)/10000);
+      var label = whole === 0 ? ' 0万元' : (delta > 0 ? '增加 ' : '减少 ') + whole.toLocaleString('zh-CN') + '万元';
+      return '<b class="'+(whole===0?'na':cls(delta))+'">'+esc(cmpLab())+label+'</b>';
+    }
+
     var hl = hlRows();
     var body = R.map(function (r) {
       if (r.h) return '<tr class="sec"><td colspan="4"><b>' + esc(r.h) + '</b>' +
         (r.s ? '<i>' + esc(r.s) + '</i>' : '') + '</td></tr>';
+      if (r.k === 'gp') markChanges = true;
+      var movement = markChanges ? changeLabel(r) : '';
       var isT = !!r.t;
       var sign = (r.open || r.nosign) ? '' : (isT ? '＝' : (r.v < 0 ? '−' : '＋'));
       var kls = (r.v === null || r.nosign) ? '' : (isT ? '' : (r.v < 0 ? 'down' : 'up'));
@@ -5492,7 +5512,7 @@ window.HOME = (function () {
           (r.v === null ? '—' : w1(Math.abs(r.v))) + '</td>' +
         '<td class="num pc">' +
           (r.v === null ? '—' : pctS(Math.abs(r.v) / rev, 1)) + '</td>' +
-        '<td class="ds">' + r.d + '</td></tr>';
+        '<td class="ds">' + (movement ? movement + (r.d ? '；' : '') : '') + r.d + '</td></tr>';
     }).join('');
 
     /* 表头上那段说明 Bonnie 2026-09-06 要求剔除。点柱子高亮行、点行框柱子这套联动
@@ -8931,29 +8951,6 @@ window.PL = (function () {
 
 
   /* ---------------- 结论条 ---------------- */
-  function expenseMovement(cur, cmp) {
-    if (!cmp) return '';
-    var rows = [{n:'销售费用',id:'22'},{n:'管理费用',id:'51'},{n:'财务费用',id:'77'}];
-    var total = 0, complete = true;
-    rows.forEach(function(r){
-      var c=H.fv(r.id,cur),p=H.fv(r.id,cmp);
-      if(c===null||p===null){complete=false;return;}
-      r.delta=c-p;total+=r.delta;
-    });
-    if(!complete) return '对比期费用数据不完整，暂不计算费用涨跌金额。';
-    function movement(v){
-      if(Math.abs(v)<0.005)return '持平（0.00万元）';
-      return '<b class="'+H.cls(v)+'">'+(v>0?'上涨':'下降')+H.wan(Math.abs(v),2)+'万元</b>';
-    }
-    var text='费用变动（'+H.esc(H.cmpLab())+'）：销售、管理及财务费用合计'+movement(total)+'；其中'+
-      rows.map(function(r){return r.n+movement(r.delta);}).join('，')+'。';
-    var adC=H.fv('23',cur),adP=H.fv('23',cmp),promoC=H.fv('25',cur),promoP=H.fv('25',cmp);
-    if(adC!==null&&adP!==null&&promoC!==null&&promoP!==null){
-      text+='销售费用中的广告费（含线上推广）'+movement(adC+promoC-adP-promoP)+'。';
-    }
-    return text;
-  }
-
   function hero() {
     var el = document.getElementById('p_hero'); if (!el) return;
     var cur = H.curMs(), cmp = H.cmpMs();
@@ -8985,7 +8982,7 @@ window.PL = (function () {
 
     el.innerHTML = '<div class="plh"><span class="plhtag">本期结论</span>' +
       '<div class="plht"><p>' + line + '</p><p class="s">' + line2 + '</p>' +
-      (cmp ? '<p class="s">' + expenseMovement(cur, cmp) + '</p>' : '') + '</div></div>';
+      '</div></div>';
   }
 
   /* ---------------- 一 · 事业部财务利润全貌（分摊后） ----------------
