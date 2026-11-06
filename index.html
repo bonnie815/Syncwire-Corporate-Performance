@@ -8931,6 +8931,29 @@ window.PL = (function () {
 
 
   /* ---------------- 结论条 ---------------- */
+  function expenseMovement(cur, cmp) {
+    if (!cmp) return '';
+    var rows = [{n:'销售费用',id:'22'},{n:'管理费用',id:'51'},{n:'财务费用',id:'77'}];
+    var total = 0, complete = true;
+    rows.forEach(function(r){
+      var c=H.fv(r.id,cur),p=H.fv(r.id,cmp);
+      if(c===null||p===null){complete=false;return;}
+      r.delta=c-p;total+=r.delta;
+    });
+    if(!complete) return '对比期费用数据不完整，暂不计算费用涨跌金额。';
+    function movement(v){
+      if(Math.abs(v)<0.005)return '持平（0.00万元）';
+      return '<b class="'+H.cls(v)+'">'+(v>0?'上涨':'下降')+H.wan(Math.abs(v),2)+'万元</b>';
+    }
+    var text='费用变动（'+H.esc(H.cmpLab())+'）：销售、管理及财务费用合计'+movement(total)+'；其中'+
+      rows.map(function(r){return r.n+movement(r.delta);}).join('，')+'。';
+    var adC=H.fv('23',cur),adP=H.fv('23',cmp),promoC=H.fv('25',cur),promoP=H.fv('25',cmp);
+    if(adC!==null&&adP!==null&&promoC!==null&&promoP!==null){
+      text+='销售费用中的广告费（含线上推广）'+movement(adC+promoC-adP-promoP)+'。';
+    }
+    return text;
+  }
+
   function hero() {
     var el = document.getElementById('p_hero'); if (!el) return;
     var cur = H.curMs(), cmp = H.cmpMs();
@@ -8961,7 +8984,8 @@ window.PL = (function () {
       '），平台毛利以下的人力与管理再花掉 <b>' + w(a.gp - a.ebt) + ' 万</b>。';
 
     el.innerHTML = '<div class="plh"><span class="plhtag">本期结论</span>' +
-      '<div class="plht"><p>' + line + '</p><p class="s">' + line2 + '</p></div></div>';
+      '<div class="plht"><p>' + line + '</p><p class="s">' + line2 + '</p>' +
+      (cmp ? '<p class="s">' + expenseMovement(cur, cmp) + '</p>' : '') + '</div></div>';
   }
 
   /* ---------------- 一 · 事业部财务利润全貌（分摊后） ----------------
