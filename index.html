@@ -9280,16 +9280,16 @@ window.PL = (function () {
       /* Bonnie 2026-09-06：「写 减：所得税，金额方面不要用负数」——
          所以这两行去掉 pm（原来会给亏损事业部的税盾标 ＋），一律取绝对值，
          方向由行名里的「减：」交代。与上面「减：销售人力」的写法一致。 */
-      { n: '减：所得税（计提口径）', get: function (b) { return taxBy[b]; },
-        co: M.taxAccrue, neg: true, note: M.taxNote },
+      { n: '减：所得税（计提口径）', get: function (b) { return M.sourceActual ? -taxBy[b] : taxBy[b]; },
+        co: M.sourceActual ? -M.taxAccrue : M.taxAccrue, signed: M.sourceActual, neg: true, note: M.taxNote },
       { n: '＝ 税后净利（计提口径）', dk: 'net', signed: true,
         get: function (b) { return netBy[b]; }, co: CO.net, t: 'tot' },
       /* 实缴两行**始终显示**（Bonnie 2026-09-06：「实缴口径和计提口径都是必须体现的」）。
          没拿到金蝶税务数据时显示「—」，并在表下方标明缺哪些月——
          绝不拿计提数顶替，那会让人以为实缴等于计提。 */
       { n: '减：所得税（实缴口径）',
-        get: function (b) { return M.taxByP ? M.taxByP[b] : null; },
-         co: M.taxPaidTot, neg: true,
+        get: function (b) { return M.taxByP ? (M.sourceActual ? -M.taxByP[b] : M.taxByP[b]) : null; },
+         co: M.sourceActual ? -M.taxPaidTot : M.taxPaidTot, signed: M.sourceActual, neg: true,
          note: M.paidNote },
       { n: '＝ 税后净利（实缴口径）', dk: 'netP', signed: true,
         get: function (b) { return M.netByP ? M.netByP[b] : null; },
@@ -9340,7 +9340,7 @@ window.PL = (function () {
           body += '<tr class="it"><td class="nm"><span>' + (it.v < 0 ? '减：' : '加：') +
             H.esc(it.n) + '</span></td>' +
             cellHTML(w(Math.abs(it.v), M.sourceActual ? 2 : undefined), '', ' co', it.v / 10000) +
-            displayBus.map(function (b) { return cell(it.by[b], false, false, false, null, b); }).join('') + '</tr>';
+            displayBus.map(function (b) { return cell(M.sourceActual ? (it.v < 0 ? -it.by[b] : it.by[b]) : it.by[b], false, M.sourceActual, false, null, b); }).join('') + '</tr>';
         });
         return;
       }
@@ -9394,7 +9394,7 @@ window.PL = (function () {
          前半句「是按比例分摊、不是财务实际入账」保留——它交代的是这张表的性质，
          没有它，看的人会把分摊出来的事业部净利当成账上的数。 */
       '<div class="hint" style="margin-top:10px">' +
-      (M.sourceActual ? '<b class="warnx">费用、税前利润及计提口径净利取财务源表。其他销售费用含考核与财务毛利衔接；账号税额按源表归属，公司实缴按税前利润分摊。</b>' : '<b class="warnx">平台毛利以下的公司级费用与所得税是按比例分摊的，不是财务实际入账</b>') +
+      (M.sourceActual ? '<b class="warnx">费用、税前利润及计提口径净利取财务源表。其他销售费用含考核与财务毛利衔接；账号税额按源表归属，公司实缴按税前利润分摊；所得税负数表示退税冲回。</b>' : '<b class="warnx">平台毛利以下的公司级费用与所得税是按比例分摊的，不是财务实际入账</b>') +
       /* 环比挪到数字旁边之后，得说一句那串小字是什么——不说的话
          「3,332 −15.0%」会被读成两个并列的数。 */
       '<br>数字右边的小字是<b>环比</b>，按全站规则<span class="up">增红</span>' +
