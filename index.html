@@ -9213,7 +9213,7 @@ window.PL = (function () {
     if (!M) { el.innerHTML = '<div class="hint">所选期间缺少数据。</div>'; return; }
     var cur = H.curMs(), w = H.wan, p = H.pctS;
     var st = M.st, bus = M.bus, D = M.D, sumGp = M.sumGp, ITEMS = M.ITEMS;
-    var displayBus = bus.filter(function (b) { return b !== '公司公摊'; });
+    var displayBus = bus.slice();
     var ebtBy = M.ebtBy, taxBy = M.taxBy, netBy = M.netBy, sumNet = M.sumNet, f2 = M.f2;
     /* 变动标识：拿对比期再跑一遍同一个模型，逐格比。
        只给"结果"行（营收 / 平台毛利 / 税前净利 / 税后净利）标变动——
@@ -9370,9 +9370,9 @@ window.PL = (function () {
       }).join('') + '</tr>';
 
     /* 顶部：税后净利的贡献条（负贡献单独标出来） */
-    var posSum = displayBus.reduce(function (a, b) { return a + Math.max(netBy[b], 0); }, 0) || 1;
-    var neg = displayBus.filter(function (b) { return netBy[b] < 0; });
-    var bar = '<div class="pcbar">' + displayBus.filter(function (b) { return netBy[b] > 0; })
+    var posSum = bus.reduce(function (a, b) { return a + Math.max(netBy[b], 0); }, 0) || 1;
+    var neg = bus.filter(function (b) { return netBy[b] < 0; });
+    var bar = '<div class="pcbar">' + bus.filter(function (b) { return netBy[b] > 0; })
       .map(function (b) {
         var pc = netBy[b] / posSum * 100;
         return '<i style="width:' + pc.toFixed(2) + '%;background:' + (PAL[b] || '#a41e26') +
@@ -9380,7 +9380,7 @@ window.PL = (function () {
           '<u>' + (pc >= 7 ? pc.toFixed(0) + '%' : '') + '</u></i>';
       }).join('') + '</div>' +
       '<div class="pclg"><span class="t">税后净利的贡献结构</span>' +
-      displayBus.map(function (b) {
+      bus.map(function (b) {
         return '<span><i style="background:' + (PAL[b] || '#a41e26') + '"></i>' + H.esc(b) +
           ' ' + w(netBy[b]) + '万</span>';
       }).join('') +
