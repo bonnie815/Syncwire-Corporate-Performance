@@ -3617,7 +3617,7 @@ nav.tabs .tab.active{color:#fff; font-weight:700; border-bottom-color:#e8c37a;}
 .np-detail-toggle{margin-left:auto;border:1px solid #d9b8bc;border-radius:4px;background:#fff;color:#941d27;padding:4px 10px;font-size:11px!important}.np-table-wrap[hidden]{display:none}
 
 .np-table tfoot td:nth-child(5){text-align:right}@media(max-width:600px){.np-brand-metrics{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:13px}}
-</style></head>
+</style><style id="grade_new_product_style">#g_band .g-new-product{display:inline-block;margin-left:6px;padding:1px 5px;border-radius:3px;border:1px solid #e6c7ba;background:#fff5ed;color:#a44b25;font:10px/1.5 "Microsoft YaHei",sans-serif;white-space:nowrap;vertical-align:middle}#g_band .g-new-legend{margin:8px 0 12px;color:#788594;font-size:11px;line-height:1.7}#g_band .g-new-legend .g-new-product{margin-left:0;margin-right:7px}</style></head>
 <body>
 
 <!-- 密码门 -->
@@ -11156,7 +11156,7 @@ window.GRADE = (function () {
     C.groups.forEach(function (g) { nsku[g.sku] = 1; });
     var cap = clashAll ? n : Math.min(CLTOP, n);
     var rows = C.groups.slice(0, cap).map(function (g) {
-      return '<tr class="lv0"><td class="ts"><span class="mono">' + esc(g.sku) + '</span></td>' +
+      return '<tr class="lv0"><td class="ts"><span class="mono">' + esc(g.sku) + '</span>' + newProductBadge(g.sku, ym) + '</td>' +
         '<td class="ts"><b>' + esc(g.cty) + '</b></td>' +
         '<td class="ts gcl">' + g.rows.map(function (x) {
           return '<span class="gcp"><i class="gb g' + x.gs + '">' + x.gs + '</i>' +
@@ -11220,6 +11220,28 @@ window.GRADE = (function () {
     return out;
   }
 
+
+  var newProductDates = {source:null,map:{}};
+  function newProductWindow(ym) {
+    var year=2000+Number(ym.slice(0,2)), month=Number(ym.slice(2));
+    return {from:new Date(Date.UTC(year,month-6,1)).toISOString().slice(0,10),
+            to:new Date(Date.UTC(year,month,0)).toISOString().slice(0,10)};
+  }
+  function newProductDate(sku) {
+    var catalog=(window.NEW_PRODUCT_DATA||{}).catalog||[];
+    if(newProductDates.source!==catalog){newProductDates.source=catalog;newProductDates.map={};catalog.forEach(function(c){newProductDates.map[String(c.sku||'').trim().toUpperCase()]=c.launch;});}
+    return newProductDates.map[String(sku||'').trim().toUpperCase()]||'';
+  }
+  function newProductBadge(sku,ym) {
+    var date=newProductDate(sku),range=newProductWindow(ym);
+    if(!date||date<range.from||date>range.to)return '';
+    return '<span class="g-new-product" title="上线日期：'+esc(date)+'；新品范围：'+range.from+' 至 '+range.to+'">新品</span>';
+  }
+  function newProductLegend(ym) {
+    var range=newProductWindow(ym);
+    return '<div class="g-new-legend"><span class="g-new-product">新品</span>近6个月内上线（'+range.from.replace(/-/g,'.')+'—'+range.to.replace(/-/g,'.')+'，含首尾）。</div>';
+  }
+
   function detail(ym, g) {
     var isK0 = gmodeSku();
     var pm = isK0 ? prevMapK(ym) : prevMap(ym);
@@ -11278,7 +11300,7 @@ window.GRADE = (function () {
     var cells = function (x) {
       return '<td class="ts">' +
           '<span class="exp none"></span>' +
-          '<span class="mono">' + esc(x.spu) + '</span>' +
+          '<span class="mono">' + esc(x.spu) + '</span>' + newProductBadge(x.sku || x.spu, ym) +
           (x.clash ? '<i class="gclash" title="这个 SKU 在 ' + esc(x.clashCty) +
                      ' 还有别的账号站点，级别不一样' +
                      (isSkuView ? '，那几条不在本级别里（见表下清单）' : '（见表下清单）') +
@@ -12216,7 +12238,7 @@ window.GRADE = (function () {
           '」，是<b>对照表</b>不是当月数据。'
         : '') +
       '</div>' +
-      modeBar(ym) + contrast(ym) +
+      modeBar(ym) + newProductLegend(ym) + contrast(ym) +
       '<div class="kpis gcards">' + bandCards(ym) + '</div>' + drill(ym) +
       /* 「同一 SKU、同一国家、跨账号站点分级不一致」单独一张清单（Bonnie 2026-09-14）。
          放在明细表之后：先看分级本身，再看这一类需要单独处理的情况。 */
