@@ -10826,6 +10826,7 @@ window.GRADE = (function () {
             '>' + pc(gpr) + '</b></div>' +
           minGpRow +
           '<div><span>广告费</span><b>' + w(b.ad) + ' 万</b></div>' +
+          '<div class="g-ad-share" title="本级广告费 ÷ 同期全部产品广告费（含推广费）"><span>占公司广告费</span><b>' + pc(tot.ad > 0 ? b.ad / tot.ad : null) + '</b></div>' +
           '<div><span>ACOS</span><b class="' + adrCls(adr) + '">' + pc(adr) + '</b></div>' +
           '<div><span>流量效</span><b' + (eff !== null && eff < 0 ? ' class="bad"' : '') + '>' +
             (eff === null ? '—' : eff.toFixed(2)) + '</b></div>' +
